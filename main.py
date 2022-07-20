@@ -1,11 +1,18 @@
+import sys
+import os
 from tkinter import *
 from tkinter import ttk
 import tkinter
-from tkinter.filedialog import askdirectory, askopenfilename, askopenfilenames
+from tkinter.filedialog import askdirectory, askopenfilenames
 from pathlib import Path
 from PIL import Image
 
-selected_files = []
+try:
+    base_dir = Path(sys._MEIPASS)
+except:
+    base_dir = Path(os.getcwd())
+
+selected_files = None
 selected_output_dir = None
 
 def select_files(view: ttk.Button):
@@ -71,18 +78,18 @@ def main():
     frm = ttk.Frame(root, padding=10)
     frm.grid()
     
-    ttk.Label(frm, text="Batch Image Resizer").grid(column=0, row=0)
+    ttk.Label(frm, text="Welcome to Batch Image Resizer").grid(column=0, row=0)
 
-    images_display = ttk.Label(frm, text="selected_files")
+    images_display = ttk.Label(frm, text="selected files")
     ttk.Button(frm, text="select images to resize", command=lambda: select_files(images_display)).grid(row=1)
     images_display.grid(column=0, row=2)
 
-    outdir_display = ttk.Label(frm, text="out_dir")
+    outdir_display = ttk.Label(frm, text="output directory")
     ttk.Button(frm, text="select output directory", command=lambda: select_dir(outdir_display)).grid(row=3)
     outdir_display.grid(column=0, row=4)
 
-    ttk.Label(frm,text="X").grid(row=5,column=1)
-    ttk.Label(frm,text="Y").grid(row=5,column=2)
+    ttk.Label(frm,text="X in px").grid(row=5,column=1)
+    ttk.Label(frm,text="Y in px").grid(row=5,column=2)
     targetX = ttk.Entry(frm)
     targetX.grid(row=6,column=1)
     targetY = ttk.Entry(frm)
@@ -98,6 +105,11 @@ def main():
 
 
     ttk.Button(frm, text="exit", command=root.destroy).grid(column=0, row=10)
+
+    icon = base_dir / "assets" / "icon.ico"
+    #images_display.configure(text=f"icon {icon}")
+    root.iconbitmap(icon)
+    root.title("Batch Image Resizer")
     root.mainloop()
 
 if __name__ =='__main__':

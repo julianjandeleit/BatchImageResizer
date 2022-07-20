@@ -1,0 +1,4 @@
+.PHONY:
+
+distribute:
+	pyinstaller.exe --onefile --windowed --icon .\assets\icon.ico --add-data "assets/icon.ico;assets" --name "BatchImageResizer" main.py
