@@ -4,7 +4,7 @@ from tkinter import *
 from tkinter import ttk
 from tkinter.filedialog import askdirectory, askopenfilenames
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 try:
     base_dir = Path(sys._MEIPASS)
@@ -37,7 +37,36 @@ def update_mode(mode, x, y, s):
     s.configure(state="normal" if mode.get() == "scale" else "disabled")
 
 
-def on_compute_resize(files, mode, X, Y, S, err_label, outDir, pb):
+def apply_watermark(im: Image.Image, text: str) -> Image.Image:
+    if not text:
+        return im
+
+    im = im.convert("RGBA")
+    overlay = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    w, h = im.size
+    font_size = max(12, int(min(w, h) * 0.035))
+
+    try:
+        font = ImageFont.truetype("arial.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
+
+    text_bbox = draw.textbbox((0, 0), text, font=font)
+    tw = text_bbox[2] - text_bbox[0]
+    th = text_bbox[3] - text_bbox[1]
+
+    margin = int(font_size * 0.6)
+    x = w - tw - margin
+    y = h - th - margin
+
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, 120))
+
+    return Image.alpha_composite(im, overlay).convert("RGB")
+
+
+def on_compute_resize(files, mode, X, Y, S, watermark, err_label, outDir, pb):
     if not files or outDir is None:
         err_label.configure(text="Select files and output directory")
         return
@@ -65,7 +94,10 @@ def on_compute_resize(files, mode, X, Y, S, err_label, outDir, pb):
         elif mode.get() == "height":
             new_size = (int(w * y / h), y)
 
-        im.resize(new_size, Image.NEAREST).save(outDir / file.name)
+        im = im.resize(new_size, Image.NEAREST)
+        im = apply_watermark(im, watermark.get())
+        im.save(outDir / file.name)
+
         pb.step(1)
 
     err_label.configure(text="Done")
@@ -74,14 +106,10 @@ def on_compute_resize(files, mode, X, Y, S, err_label, outDir, pb):
 def main():
     root = Tk()
     root.title("Batch Image Resizer")
-    root.geometry("520x420")
+    root.geometry("540x460")
 
     style = ttk.Style(root)
     style.theme_use("clam")
-    style.configure("TLabel", font=("Segoe UI", 10))
-    style.configure("TButton", font=("Segoe UI", 10))
-    style.configure("TRadiobutton", font=("Segoe UI", 10))
-    style.configure("Header.TLabel", font=("Segoe UI", 13, "bold"))
 
     root.columnconfigure(0, weight=1)
     root.rowconfigure(0, weight=1)
@@ -90,7 +118,9 @@ def main():
     frm.grid(sticky="nsew")
     frm.columnconfigure(1, weight=1)
 
-    ttk.Label(frm, text="Batch Image Resizer", style="Header.TLabel").grid(row=0, column=0, columnspan=3, pady=(0, 12))
+    ttk.Label(frm, text="Batch Image Resizer", font=("Segoe UI", 13, "bold")).grid(
+        row=0, column=0, columnspan=3, pady=(0, 12)
+    )
 
     files_lbl = ttk.Label(frm, text="No files selected")
     ttk.Button(frm, text="Select Images", command=lambda: select_files(files_lbl)).grid(row=1, column=0, sticky="w")
@@ -104,32 +134,33 @@ def main():
 
     mode = StringVar(value="fixed")
 
-    ttk.Label(frm, text="Resize Mode").grid(row=4, column=0, sticky="w")
-    ttk.Radiobutton(frm, text="Fixed WxH", variable=mode, value="fixed").grid(row=5, column=0, sticky="w")
-    ttk.Radiobutton(frm, text="Scale", variable=mode, value="scale").grid(row=6, column=0, sticky="w")
-    ttk.Radiobutton(frm, text="Fixed Width", variable=mode, value="width").grid(row=7, column=0, sticky="w")
-    ttk.Radiobutton(frm, text="Fixed Height", variable=mode, value="height").grid(row=8, column=0, sticky="w")
+    ttk.Radiobutton(frm, text="Fixed WxH", variable=mode, value="fixed").grid(row=4, column=0, sticky="w")
+    ttk.Radiobutton(frm, text="Scale", variable=mode, value="scale").grid(row=5, column=0, sticky="w")
+    ttk.Radiobutton(frm, text="Fixed Width", variable=mode, value="width").grid(row=6, column=0, sticky="w")
+    ttk.Radiobutton(frm, text="Fixed Height", variable=mode, value="height").grid(row=7, column=0, sticky="w")
 
     X = ttk.Entry(frm, width=10)
     Y = ttk.Entry(frm, width=10)
     S = ttk.Entry(frm, width=10)
 
-    ttk.Label(frm, text="Width").grid(row=5, column=1, sticky="e")
-    X.grid(row=5, column=2, sticky="w")
-
-    ttk.Label(frm, text="Height").grid(row=6, column=1, sticky="e")
-    Y.grid(row=6, column=2, sticky="w")
-
-    ttk.Label(frm, text="Scale").grid(row=7, column=1, sticky="e")
-    S.grid(row=7, column=2, sticky="w")
+    ttk.Label(frm, text="Width").grid(row=4, column=1, sticky="e")
+    X.grid(row=4, column=2, sticky="w")
+    ttk.Label(frm, text="Height").grid(row=5, column=1, sticky="e")
+    Y.grid(row=5, column=2, sticky="w")
+    ttk.Label(frm, text="Scale").grid(row=6, column=1, sticky="e")
+    S.grid(row=6, column=2, sticky="w")
 
     mode.trace_add("write", lambda *_: update_mode(mode, X, Y, S))
     update_mode(mode, X, Y, S)
 
-    ttk.Separator(frm).grid(row=9, column=0, columnspan=3, sticky="ew", pady=12)
+    ttk.Separator(frm).grid(row=8, column=0, columnspan=3, sticky="ew", pady=12)
+
+    ttk.Label(frm, text="Watermark (optional)").grid(row=9, column=0, sticky="w")
+    watermark = ttk.Entry(frm)
+    watermark.grid(row=9, column=1, columnspan=2, sticky="ew")
 
     pb = ttk.Progressbar(frm)
-    pb.grid(row=10, column=0, columnspan=3, sticky="ew")
+    pb.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(12, 0))
 
     err = ttk.Label(frm, text="")
     err.grid(row=11, column=0, columnspan=3)
@@ -137,7 +168,9 @@ def main():
     ttk.Button(
         frm,
         text="Resize Images",
-        command=lambda: on_compute_resize(selected_files, mode, X, Y, S, err, selected_output_dir, pb)
+        command=lambda: on_compute_resize(
+            selected_files, mode, X, Y, S, watermark, err, selected_output_dir, pb
+        )
     ).grid(row=12, column=0, pady=10)
 
     ttk.Button(frm, text="Exit", command=root.destroy).grid(row=12, column=2, pady=10, sticky="e")
